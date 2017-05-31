@@ -146,7 +146,14 @@ qplot(x=LP_ServiceFees, data=data_var)
 qplot(x=Term, data=data_var)
 ```
 
-Although Term is a numeric variable, it actually only has three levels: 12, 36, and 60.
+Although Term is a numeric variable, it actually only has three levels: 12, 36, and 60. Therefore I plot Term again as a factor
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+data_var$Term<-factor(data_var$Term)
+ggplot(aes(x=Term), data=data_var) +
+    geom_bar() 
+```
+
 
 
 ```{r echo=FALSE, message = FALSE, warning = FALSE}
@@ -347,7 +354,6 @@ This plot shows a positive medium correlation between the two variables. It look
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-
 ggplot(aes(x=Term, y=LoanOriginalAmount, group = Term),
        data=newdata) + 
     geom_boxplot(fill='bisque') +
@@ -355,6 +361,16 @@ ggplot(aes(x=Term, y=LoanOriginalAmount, group = Term),
 ```
 
 This plot shows that the amount of loan for 12, 36 and 60 months of term was different, with more amount corresponding to longer term.
+
+To explore the Loan Original Amount between different lengths of Term:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(aov(LoanOriginalAmount ~ Term, data=newdata))
+pairwise.t.test(newdata$LoanOriginalAmount, newdata$Term,
+                p.adjust="bonferroni")
+```
+
+So ANOVA test shows that Loan Amount significantly increases with Term length.
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -366,6 +382,15 @@ ggplot(aes(x=IncomeRange, y=LoanOriginalAmount), data=newdata) +
 
 The general trend was that with higher Income, the mean and variance of loan amount was also higher. The exception was at the income of 0. This might be because people receive 0 in their income for different reasons (temparory job, internship, etc.), so for the zero-income people their loan amount may be more likely to depend on other variables.
 
+To explore the difference of loan amount by income range:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(aov(LoanOriginalAmount ~ IncomeRange, data=newdata))
+pairwise.t.test(newdata$LoanOriginalAmount, newdata$IncomeRange,
+                p.adjust="bonferroni")
+```
+
+The ANOVA test shows that from $1-24,999 above, loan amount increases with income range. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(aes(x=IsBorrowerHomeowner, y=LoanOriginalAmount), 
@@ -374,7 +399,13 @@ ggplot(aes(x=IsBorrowerHomeowner, y=LoanOriginalAmount),
     stat_summary(fun.y = mean, geom="point", color="blue")
 ```
 
-The loan amount for home owners and non home owners were not very different from each other, although larger variance of loan amount was found for home owners. 
+The loan amount for home owners looks larger than that for non home owners, and larger variance of loan amount was found for home owners. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+t.test(newdata$LoanOriginalAmount~newdata$IsBorrowerHomeowner)
+```
+
+The independent t test confirms that overall, home owners have larger loan amount.
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -386,6 +417,15 @@ ggplot(aes(x=LoanOriginalQuarter, y=LoanOriginalAmount),
 
 The loan amount in different quarter was not very different from one another.
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(aov(LoanOriginalAmount ~ LoanOriginalQuarter, data=newdata))
+pairwise.t.test(newdata$LoanOriginalAmount, newdata$LoanOriginalQuarter,
+                p.adjust="bonferroni")
+newdata %>% group_by(LoanOriginalQuarter) %>%
+    summarise(mean_amount=mean(LoanOriginalAmount), n=n()) 
+```
+
+The AVOVA test shows difference of loan amount among quarters. To be specific, loan amount in Q1 > Q4 > Q3 > Q2. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ggplot(aes(x=EmploymentStatus2, y=LoanOriginalAmount), data=newdata) +
@@ -395,6 +435,13 @@ ggplot(aes(x=EmploymentStatus2, y=LoanOriginalAmount), data=newdata) +
 
 From this plot, the loan amount of employed borrowers has larger variance and higher mean compared to that of borrowers with other employment status.
 
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(aov(LoanOriginalAmount ~ EmploymentStatus2, data=newdata))
+pairwise.t.test(newdata$LoanOriginalAmount, newdata$EmploymentStatus2,
+                p.adjust="bonferroni")
+```
+
+So employed borrowers tend to have larger amount of loan compared to borrowers with other employment status. No difference is found between retired and not employed borrowers.
 
 In addition to the main variable (LoanOriginalAmount) that I focused on, I also looked into the relationship between other variables, and found a relationship between pre charge-off cumulative gross payments made by the borrower on the loan (LP_CustomerPayments) and Cumulative service fees paid by the investors who have invested in the loan (LP_ServiceFees).
 
@@ -412,9 +459,11 @@ Observed relationships are as follows:
 3. A weak positive correlation was found between LoanOriginalAmount and pre charge-off cumulative gross payments made by the borrower (LP_CustomerPayments), which means that the amount of loan tends to be larger if the borrower has made higher pre charge-off payment.        
 4. A medium negative correlation was found between LoanOriginalAmount and cumulative service fees paid by the investors who have invested in the loan, which means that the amount of loan tends to be larger if the investors have paid more service fees.                        
 5. A weak positive correlation was found between LoanOriginalAmount and the lower value representing the range of the borrower's credit score as provided by a consumer credit rating agency. It means that borrowers with higher credit score tend to have larger amount of loan.        
-6. Larger amount of loan tends to have longer term.               
-7. In general, more income is related to larger amount of loan.        
-8. Borrowers who are employed tend to have larger amount of loan.
+6. Larger amount of loan tends to have longer term.         
+7. Borrowers with their own home tend to have larger amount of loan.    
+8. In which quarter the loan was created seems to affect the amount of loan.                        
+9. In general, more income is related to larger amount of loan.        
+10. Borrowers who are employed tend to have larger amount of loan.
 
 
 #### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
@@ -693,7 +742,9 @@ The observed moderating effects/interactions are as follows:
 
 
 #### Model with my dataset:
-Based on the univariate, bivariate and mutivariate analysis, I'm going to create a multiple regression model to predict original loan amount, including the variables that are correlated to LoanOriginalAmount, and the interactions found from the plots. I will add the variables to the model one after another, and then add interactions, meanwhile comparing the models using ANOVA. One noteworthy thing is that although there is an apparant interaction between IsBorrowerHomeowner and Term, I will not include this in the model, for the variable IsBorrowerHomeowner itself seems not to be a good predictor based on other plots, therefore the interaction should not be included. The situation with Quarter is similar: although an interaction between LP_ServiceFees and LoanOriginalQuarter was found, based on the bivariate plot, Quarter does not affect loan amount, therefore quarter and its interaction will not be included in the model. 
+Based on the univariate, bivariate and mutivariate analysis, I'm going to create a multiple regression model to predict original loan amount, including the variables that are correlated to LoanOriginalAmount, and the interactions found from the plots. I will add the variables to the model one after another, and then add interactions, meanwhile comparing the models using ANOVA. One noteworthy thing is that although EmploymentStatus2 seems to affect loan amount, more than 88% of the employment status was employed, therefore the unbalance between different employment status makes it not a good predictor. Therefore EmploymentStatus2 will not be added in the model.
+
+there is an apparant interaction between IsBorrowerHomeowner and Term, I will not include this in the model, for the variable IsBorrowerHomeowner itself seems not to be a good predictor based on other plots, therefore the interaction should not be included. The situation with Quarter is similar: although an interaction between LP_ServiceFees and LoanOriginalQuarter was found, based on the bivariate plot, Quarter does not affect loan amount, therefore quarter and its interaction will not be included in the model. 
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -706,20 +757,22 @@ m4<-update(m3, . ~ . + LP_ServiceFees)
 m5<-update(m4, . ~ . + Term)
 m6<-update(m5, . ~ . + CreditScoreRangeLower)
 m7<-update(m6, . ~ . + IncomeRange)
-m8<-update(m7, . ~ . + EmploymentStatus2)
-m9<-update(m8, . ~ . + MonthlyLoanPayment:Term)
-m10<-update(m9, . ~ . + IncomeRange:Investors)
-m11<-update(m10, . ~ . + Term:Investors)
+m8<-update(m7, . ~ . + IsBorrowerHomeowner)
+m9<-update(m8, . ~ . + LoanOriginalQuarter)
+m10<-update(m9, . ~ . + MonthlyLoanPayment:Term)
+m11<-update(m10, . ~ . + IncomeRange:Investors)
+m12<-update(m11, . ~ . + Term:Investors)
+m13<-update(m12, . ~ . + Term: IsBorrowerHomeowner)
 
-anova(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11)
+anova(m1,m2,m3,m4,m5,m6,m7,m8,m9,m10,m11,m12,m13)
 mtable(m1,m2,m3,m4, sdigits=3)
 mtable(m4,m5,m6,m7, sdigits=3)
-mtable(m7,m8,m9, sdigits=3)
-mtable(m9,m10,m11, sdigits=3)
+mtable(m7,m8,m9,m10, sdigits=3)
+mtable(m10,m11,m12,m13, sdigits=3)
 ```
 
 
-The ANOVA test shows that all variables and interactions in the last model (m11) significantly improve the model, therefore all of them should be kept in the model. From the above table of regression models, we can see that MonthlyLoanPayment alone can explain 89.6% of the variance of LoanOriginalAmount. This is consistent with our plots, indicating that MonthlyLoanPayment is the strongest predictor. The second strong predictor is Term, which means that longer loan term is related to larger amount of loan. The final model explains 95.9% of the variance of loan amount.
+The ANOVA test shows that all variables and interactions in the last model (m11) significantly improve the model, therefore all of them should be kept in the model. From the above table of regression models, we can see that MonthlyLoanPayment alone can explain 89.6% of the variance of LoanOriginalAmount. This is consistent with our plots, indicating that MonthlyLoanPayment is the strongest predictor. The second strong predictor is Term, which means that longer loan term is related to larger amount of loan. The final model explains 96.4% of the variance of loan amount.
 
 
 # Final Plots and Summary
@@ -752,14 +805,13 @@ This Plot two describes the strongest correlation related to the predicted varia
 ### Plot Three
 ```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Three}
 ggplot(aes(x=MonthlyLoanPayment, y=LoanOriginalAmount), data=newdata) +
-    geom_point(aes(color=IncomeRange)) +
+    geom_point() +
     geom_smooth(method='lm',color='red') +
     facet_wrap(~Term) +
     ggtitle("Relationship Between Monthly Payment and Loan Amount 
 By Different Loan Term
 After Standardization and Transformation") +
-    theme(plot.title=element_text(hjust=0.5)) +
-    theme(legend.position="bottom", legend.box = "horizontal")
+    theme(plot.title=element_text(hjust=0.5))
 ```
 
 ### Description Three
@@ -767,7 +819,7 @@ This Plot Three confirms my speculation from Plot Two. The relationship between 
 
 
 # Reflection
-The series of analysis have shown that the original amount of loan is related to many other variables. This dataset contains six numeric variables in addition to the amount of loan, as well as four factors. After examining the relationship between loan amount and these other variables with plots and multiple linear regression, I found that except for whether the borrower was a home owner and in which quarter the loan was created, all other variables predicted the amount of loan. 
+The series of analysis have shown that the original amount of loan is related to many other variables. This dataset contains six numeric variables in addition to the amount of loan, as well as four factors. After examining the relationship between loan amount and these other variables with plots and multiple linear regression, I found that all these variables predicted the amount of loan. 
 
 A strong positive correlation between LoanOriginalAmount and MonthlyLoanPayment was found, which means that people with larger amount of original loan are more likely to schedule larger amount of monthly loan payment. A further analysis showed that this relationship was moderated by the length of loan term. With longer loan term, larger amount of loan tends to relate to even more monthly payment. 
 
@@ -775,6 +827,10 @@ The amount of loan also tends to be larger with more investors, and this relatio
 
 In general, higher income the borrower had, the larger amount of loan they tend to borrow. The employed borrowers and borrowers with higher credit score also tend to have larger amount of loan compared to borrowers with other employment status. Loan with longer term is also more likely has larger amount.
 
+Home owners tend to have larger amount of loan, but it is also affected by the length of loan term. To be specific, whether borrowers have their own home does not matter much for a short term loan (12 months), but it affects longer term loan (36 and 60 months).  
+
 The amount of loan also tends to be larger if the borrower has made higher pre charge-off payment, or if the investors have paid more service fees.
+
+The time when the loan was created in a year seems to affect the amount of loan, Q1 > Q4 > Q3 > Q2 although the difference between Q3 and Q2 was significant but very small.  
 
 Although the model has shown that using these variables and the interactions between several of them could predict a high proportion of the variance of loan amount, it still has limitations. Monthly payment explains more than 89% of the variance of loan amount and seems to be a very good predictor; However, there might be some variables that could predict both loan amount and monthly payment. For example, one could think that the borrower's average expense per month, their marital status, how many children they have, and their estates, stock and other properties should also predict both their monthly payment and loan amount. These variables are not include in the original dataset, for the original dataset does not focus on more personal information of the borrowers. I think with more information considered, the model can be much improved.  
